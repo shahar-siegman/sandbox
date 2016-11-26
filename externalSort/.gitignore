@@ -1,3 +1,11 @@
 *.csv
 .vscode/
 node_modules/
+breakStream.js
+externalSort.js
+inputArray.json
+inputArray.txt
+randomNumberSeq.js
+sortTransform.js
+streamMeterTest.js
+testExternalSort.js

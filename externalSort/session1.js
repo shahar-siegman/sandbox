@@ -1,10 +1,13 @@
 const BatchStream = require('batch-stream');
 const stringifyStream = require('stringify-stream')
 const Readable = require('stream').Readable;
-var through = require('through');
+const through = require('through');
+const json2csv = require('json2csv');
+const lbl = require('n-readlines')
+
 var myReadable= new Readable({objectMode:true});
 var fs = require('fs')
-var lbl = require('linebyline')
+
 
 var batch = new BatchStream({ size : 5 });
 
@@ -18,11 +21,30 @@ myReadable._read = function() {
         this.push(null)
 }
 
+function fnameByNumber(num) {
+    y=num.toString().length;
+    return 'tmp'+'0'.repeat(Math.max(0,5-y))+num+'.csv';
+}
+
 function handleIncomingBatch(dataBatch,comp,counter) {
-    y=counter.toString().length;
-    var filename='tmp'+'0'.repeat(Math.max(0,5-y))+counter+'.csv';
+    var filename=fnameByNumber(counter);
+    fs.writeFileSync(filename,'');
     dataBatch.sort(comp);
-    fs.writeFileSync(filename, JSON.stringify(dataBatch));
+    for (var i=0; i<dataBatch.length; i++)
+        fs.appendFileSync(filename, json2csv({data:dataBatch[i], hasCSVColumnTitle: false}) + '\n');
+}
+
+function emitSorted(filenames,comp,fieldnames) {
+    var deepComp=function(obj1, obj2) { return comp(obj1.data,obj2.data) };
+    var inStreams=[];
+    var dataBuffer = []
+    // create initial array of objects
+    for (var i=0; i < filenames.length; i++)
+    {
+        inStreams.push(new lbl(filenames[i]))
+        dataBuffer.push({source: filenames[i], data: inStreams[i].next().toString('ascii')})
+    }
+    1;
 }
 
 var testSort ={};
@@ -36,7 +58,9 @@ function sort(comp)
     return through(
         function(dataBatch) {
             this.i = this.i || 0;
-            handleIncomingBatch(dataBatch,comp,this.i);
+            this.fnames = this.fnames || [];
+            var fname = handleIncomingBatch(dataBatch,comp,this.i);
+            this.fnames.push(fname);
             this.i++;
         },
         function() {
@@ -53,10 +77,17 @@ function myCompare(x1,x2)
 
 
 var testSort ={};
-testSort.test = function() 
+testSort.test1 = function() 
 {
     var mySortTranfrom=sort(myCompare);
     myReadable.pipe(batch).pipe(mySortTranfrom);
 }
 
-testSort.test();
+testSort.test2 = function()
+{
+    var fnames=[];
+    for(i=0; i<20; i++)
+        fnames.push(fnameByNumber(i));
+    emitSorted(fnames, myCompare, ['a','b']);
+}
+testSort.test2();
