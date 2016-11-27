@@ -1,0 +1,23 @@
+{
+  "name": "join-streams",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shahar-siegman/sandbox.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/shahar-siegman/sandbox/issues"
+  },
+  "homepage": "https://github.com/shahar-siegman/sandbox",
+  "dependencies": {
+    "csvjson": "^2.2.2",
+    "stream-array": "^1.1.2"
+  }
+}
