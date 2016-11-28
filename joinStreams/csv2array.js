@@ -73,9 +73,10 @@ module.exports = {
             sampleFields = Object.keys(sampleFields);
 
         ret._read = function () {
-            var line = f.next().toString().trim();
+            var line = f.next()
             if (line) {
-                var a = CSVtoArray(line);
+                var stringLine=line.toString().trim();
+                var a = CSVtoArray(stringLine);
                 if (null == a)
                     throw 'parse error!';
                 if (sampleFields) {

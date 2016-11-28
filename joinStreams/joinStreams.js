@@ -60,9 +60,11 @@ function joinStreams(streamA, streamB, comp, joinType, fuseFunc, emptyA, emptyB)
         function finishLoop(me) {
             if (isDoneB && !isDoneA && keepAs) { // B stream depleted
                 me.push(fuse(objA, emptyB));
+                objA=undefined;
             }
             else if (isDoneA && !isDoneB && keepBs) { // A stream depleted
                 me.push(fuse(emptyA, objB));
+                objB=undefined;
             }
             else // completed processing
                 me.push(null);
@@ -78,11 +80,15 @@ test1 = function () {
     var streamA = csv2array.CSVfileReader('sampleInput1.csv', emptyA);
     var streamB = csv2array.CSVfileReader('sampleInput2.csv', emptyB);
     var outStream = fs.createWriteStream('testOutput.json');
-    comp = function (a, b) { return a.account < b.account ? -1 : a.account == b.account ? 0 : 1; }
-    fuse = function (a, b) { return csvjson.toCSV({ id: a.id, account: a.account, domain: a.domain, manager: b.manager }, { headers: "none"}) };
-    
-    joinStreams(streamA, streamB, comp, 'inner', fuse, emptyA, emptyB).pipe(outStream);
 
-}
+    streamA.on('close',function(){console.log('Stream A closed!')})
+    streamB.on('close',function(){console.log('Stream B closed!')})
+    
+    comp = function (a, b) { return a.account < b.account ? -1 : a.account == b.account ? 0 : 1; }
+    fuse = function (a, b) { var a= csvjson.toCSV({ id: a.id, account: a.account, domain: a.domain, manager: b.manager }, { headers: "none"}); console.log(a); return(a); };
+    
+    joinStreams(streamA, streamB, comp, 'left', fuse, emptyA, emptyB).pipe(outStream);
+
+}   
 
 test1();
