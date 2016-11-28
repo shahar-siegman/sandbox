@@ -37,7 +37,7 @@ transformCSVline = function (sampleFields) {
             this.queue(objectToStream);
         },
             function () {
-                this.emit('end');
+                this.queue(null);
             }
         )
     return ret;
@@ -67,9 +67,31 @@ CSVtoArray = function (text) {
 module.exports = {
     CSVfileReader: function (pathOrFD, sampleFields, options) {
         //return lazypipe().pipe(lineReadStream,pathOrFD, options).pipe(transformCSVline ,sampleFields)
-        var ret= lineReadStream(pathOrFD,options).pipe(transformCSVline(sampleFields))
-        ret.pause();
+        var f = new lbl(pathOrFD, options);
+        var ret = new Readable({ objectMode: true });
+        if (sampleFields && !Array.isArray(sampleFields))
+            sampleFields = Object.keys(sampleFields);
+
+        ret._read = function () {
+            var line = f.next().toString().trim();
+            if (line) {
+                var a = CSVtoArray(line);
+                if (null == a)
+                    throw 'parse error!';
+                if (sampleFields) {
+                    var convertLength = Math.min(sampleFields.length, a.length);
+                    var objectToStream = {};
+                    for (var i = 0; i < convertLength; i++)
+                        objectToStream[sampleFields[i]] = a[i];
+                }
+                else
+                    objectToStream = a;
+                this.push(objectToStream);
+            }
+            else
+                this.push(null);
+        }
         return ret;
     }
-
 }
+
