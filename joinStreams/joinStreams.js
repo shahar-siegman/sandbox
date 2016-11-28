@@ -1,4 +1,5 @@
 const csvjson = require('csvjson');
+const csv2array = require('./csv2array');
 const fs = require('fs');
 var streamify = require('stream-array');
 const readable = require('stream').Readable;
@@ -42,27 +43,27 @@ function joinStreams(streamA, streamB, comp, joinType, fuseFunc, emptyA, emptyB)
             switch (comp(objA, objB)) {
                 case -1: // A < B
                     if (keepAs)
-                        this.push(fuse(objA, emptyB)+'\n');
+                        this.push(fuse(objA, emptyB));
                     objA = undefined;
                     break;
                 case 0: // A matches B
-                    this.push(fuse(objA, objB)+'\n');
+                    this.push(fuse(objA, objB));
                     objA = undefined;
                     objB = undefined;
                     break;
                 case 1: // A > B
                     if (keepBs)
-                        this.push(fuse(emptyA, objB)+'\n');
+                        this.push(fuse(emptyA, objB));
                     objB = undefined;
                     break;
             }
 
         function finishLoop(me) {
             if (isDoneB && !isDoneA && keepAs) { // B stream depleted
-                me.push(fuse(objA, emptyB)+'\n');
+                me.push(fuse(objA, emptyB));
             }
             else if (isDoneA && !isDoneB && keepBs) { // A stream depleted
-                me.push(fuse(emptyA, objB)+'\n');
+                me.push(fuse(emptyA, objB));
             }
             else // completed processing
                 me.push(null);
@@ -81,7 +82,7 @@ test1 = function () {
     var streamB = streamify(arrayB);
     var outStream = fs.createWriteStream('testOutput.json');
     comp = function (a, b) { return a.account < b.account ? -1 : a.account == b.account ? 0 : 1; }
-    fuse = function (a, b) { return JSON.stringify({ id: a.id, account: a.account, domain: a.domain, manager: b.manager }) };
+    fuse = function (a, b) { return csvjson.toCSV({ id: a.id, account: a.account, domain: a.domain, manager: b.manager }, { headers: "none"}) };
     emptyA = { id: 0, account: "", domain: "" };
     emptyB = { id: 0, account: "", manager: "" };
 
