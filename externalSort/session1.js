@@ -47,11 +47,6 @@ function emitSorted(filenames,comp,fieldnames) {
     1;
 }
 
-var testSort ={};
-testSort.test = function() 
-{
-    myReadable.pipe(batch).pipe()
-}
 
 function sort(comp)
 {

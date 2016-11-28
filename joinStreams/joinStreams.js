@@ -4,7 +4,6 @@ const fs = require('fs');
 var streamify = require('stream-array');
 const readable = require('stream').Readable;
 
-
 function joinStreams(streamA, streamB, comp, joinType, fuseFunc, emptyA, emptyB) {
     // streamA and streamB must already be sorted
     var keepAs = false, keepBs = false;
@@ -73,20 +72,15 @@ function joinStreams(streamA, streamB, comp, joinType, fuseFunc, emptyA, emptyB)
 }
 
 test1 = function () {
-    var data1 = fs.readFileSync('sampleInput1.csv', { encoding: 'utf8' });
-    var data2 = fs.readFileSync('sampleInput2.csv', { encoding: 'utf8' });
-    var options = { delimiter: ',' };
-    var arrayA = csvjson.toSchemaObject(data1, options);
-    var arrayB = csvjson.toSchemaObject(data2, options);
-    var streamA = streamify(arrayA);
-    var streamB = streamify(arrayB);
+    var emptyA = { id: 0, account: "", domain: "" };
+    var emptyB = { id: 0, account: "", manager: "" };
+
+    var streamA = csv2array.CSVfileReader('sampleInput1.csv', emptyA);
+    var streamB = csv2array.CSVfileReader('sampleInput2.csv', emptyB);
     var outStream = fs.createWriteStream('testOutput.json');
     comp = function (a, b) { return a.account < b.account ? -1 : a.account == b.account ? 0 : 1; }
     fuse = function (a, b) { return csvjson.toCSV({ id: a.id, account: a.account, domain: a.domain, manager: b.manager }, { headers: "none"}) };
-    emptyA = { id: 0, account: "", domain: "" };
-    emptyB = { id: 0, account: "", manager: "" };
-
-
+    
     joinStreams(streamA, streamB, comp, 'inner', fuse, emptyA, emptyB).pipe(outStream);
 
 }
