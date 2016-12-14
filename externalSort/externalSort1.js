@@ -2,7 +2,7 @@ const fastCsv = require('fast-csv');
 const Readable = require('stream').Readable;
 const through = require('through');
 var BatchStream = require('batch-stream2');
-var union = require('sorted-union-stream')
+var union = require('./sorted-union-stream.js')
 
 var batch = new BatchStream(
     { transform: function(items, callback) {  storeNextBatch(items,callback) } } )
