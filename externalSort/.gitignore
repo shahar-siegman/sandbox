@@ -2,7 +2,6 @@
 .vscode/
 node_modules/
 breakStream.js
-externalSort.js
 inputArray.json
 inputArray.txt
 randomNumberSeq.js
