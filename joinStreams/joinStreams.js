@@ -31,43 +31,49 @@ function joinStreams(streamA, streamB, comp, joinType, fuseFunc, emptyA, emptyB)
     return joinReadable;
 
     function joinLoop() {
-        objA || isDoneA || (objA = streamA.read());
-        objA || (isDoneA = true);
+        var toPush;
+        do {
+            objA || isDoneA || (objA = streamA.read());
+            objA || (isDoneA = true);
 
-        objB || isDoneB || (objB = streamB.read());
-        objB || (isDoneB = true);
-        if (isDoneA || isDoneB)
-            finishLoop(this)
-        else
-            switch (comp(objA, objB)) {
-                case -1: // A < B
-                    if (keepAs)
-                        this.push(fuse(objA, emptyB));
-                    objA = undefined;
-                    break;
-                case 0: // A matches B
-                    this.push(fuse(objA, objB));
-                    objA = undefined;
-                    objB = undefined;
-                    break;
-                case 1: // A > B
-                    if (keepBs)
-                        this.push(fuse(emptyA, objB));
-                    objB = undefined;
-                    break;
-            }
+            objB || isDoneB || (objB = streamB.read());
+            objB || (isDoneB = true);
+            if (isDoneA || isDoneB)
+                toPush = finishLoop(this)
+            else
+                switch (comp(objA, objB)) {
+                    case -1: // A < B
+                        if (keepAs)
+                            toPush = fuse(objA, emptyB);
+                        objA = undefined;
+                        break;
+                    case 0: // A matches B
+                        toPush = fuse(objA, objB);
+                        objA = undefined;
+                        objB = undefined;
+                        break;
+                    case 1: // A > B
+                        if (keepBs)
+                            toPush = fuse(emptyA, objB);
+                        objB = undefined;
+                        break;
+                }
+        } while (typeof toPush == 'undefined')
+        this.push(toPush);
 
-        function finishLoop(me) {
+        function finishLoop() {
+            var toPush;
             if (isDoneB && !isDoneA && keepAs) { // B stream depleted
-                me.push(fuse(objA, emptyB));
-                objA=undefined;
+                toPush = fuse(objA, emptyB);
+                objA = undefined;
             }
             else if (isDoneA && !isDoneB && keepBs) { // A stream depleted
-                me.push(fuse(emptyA, objB));
-                objB=undefined;
+                toPush = fuse(emptyA, objB);
+                objB = undefined;
             }
             else // completed processing
-                me.push(null);
+                toPush = null;
+            return toPush;
         }
     }
 
@@ -81,14 +87,14 @@ test1 = function () {
     var streamB = csv2array.CSVfileReader('sampleInput2.csv', emptyB);
     var outStream = fs.createWriteStream('testOutput.json');
 
-    streamA.on('close',function(){console.log('Stream A closed!')})
-    streamB.on('close',function(){console.log('Stream B closed!')})
-    
-    comp = function (a, b) { return a.account < b.account ? -1 : a.account == b.account ? 0 : 1; }
-    fuse = function (a, b) { var a= csvjson.toCSV({ id: a.id, account: a.account, domain: a.domain, manager: b.manager }, { headers: "none"}); console.log(a); return(a); };
-    
-    joinStreams(streamA, streamB, comp, 'left', fuse, emptyA, emptyB).pipe(outStream);
+    streamA.on('close', function () { console.log('Stream A closed!') })
+    streamB.on('close', function () { console.log('Stream B closed!') })
 
-}   
+    comp = function (a, b) { return a.account < b.account ? -1 : a.account == b.account ? 0 : 1; }
+    fuse = function (a, b) { var a = csvjson.toCSV({ id: a.id, account: a.account, domain: a.domain, manager: b.manager }, { headers: "none" }); console.log(a); return (a); };
+
+    joinStreams(streamA, streamB, comp, 'right', fuse, emptyA, emptyB).pipe(outStream);
+
+}
 
 test1();
