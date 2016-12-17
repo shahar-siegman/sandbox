@@ -1,15 +1,12 @@
 var iterate = require('stream-iterate')
 var from = require('from2')
+const compareUtils = require('./comparer.js')
 
-var defaultKey = function (val) {
-  return val.key || val
-}
-
-var union = function (streamA, streamB, toKey) {
+var union = function (streamA, streamB, compare) {
   var readA = iterate(streamA)
   var readB = iterate(streamB)
 
-  if (!toKey) toKey = defaultKey
+  if (!compare) compare = compareUtils.defaultCompare
 
   var stream = from.obj(function loop (size, cb) {
     readA(function (err, dataA, nextA) {
@@ -29,10 +26,7 @@ var union = function (streamA, streamB, toKey) {
           return cb(null, dataA)
         }
 
-        var keyA = toKey(dataA)
-        var keyB = toKey(dataB)
-
-        if (keyA < keyB || keyA === keyB) {
+        if (compare(dataA, dataB) <= 0) {
           nextA()
           return cb(null, dataA)
         }

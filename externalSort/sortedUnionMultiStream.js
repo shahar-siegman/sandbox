@@ -1,29 +1,22 @@
-
-
-
-var union = require('sorted-union-stream')
+var union = require('./sorted-union-stream')
 var from = require('from2-array')
 var through = require('through')
 
 
-function multiUnion(arrayOfStreams) {
+function multiUnion(arrayOfStreams,compare) {
     var l = arrayOfStreams.length;
     switch (l) {
         case 0:
             return from.obj([]); // a stream with no data
         case 1:
-            return arrayOfStreams[0] // the only entry is a stream-
-
+            return arrayOfStreams[0] // the only entry is a stream
         case 2:
-            return union(arrayOfStreams[0], arrayOfStreams[1])
+            return union(arrayOfStreams[0], arrayOfStreams[1],compare)
         default:
             var halfOfL = Math.floor(l / 2);
-            var h1 = multiUnion(arrayOfStreams.slice(0, halfOfL)),
-            h2 = multiUnion(arrayOfStreams.slice(halfOfL, l))
-
-            return union(h1,h2)
-                
-            
+            var h1 = multiUnion(arrayOfStreams.slice(0, halfOfL),compare)
+            h2 = multiUnion(arrayOfStreams.slice(halfOfL, l),compare)
+            return union(h1,h2,compare)
     }
 }
 
@@ -48,4 +41,5 @@ function testMU() {
     a.pipe(t).pipe(process.stdout)
 }
 
-testMU()
+module.exports = multiUnion;
+
