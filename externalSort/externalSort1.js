@@ -6,41 +6,50 @@ const multiUnion = require('./sortedUnionMultiStream.js');
 const from = require('from2-array')
 const compareUtils = require('./comparer.js')
 const fs = require('fs')
+const combine = require('stream-combiner')
 
 // options
 // compare: a compare function (takes two arguments and returns either -1, 0, or 1, with the conditions compare(a,a)==0 and compare(a,b)==-compare(b,a))
 // fieldnames: instead of specifying the compare function, you can specify the name of the fields to be compared as an array
 function externalSorter(options) {
     options = Object.assign({ size: 100 }, options);
-    var i = 0, j = 0, a = [], compare = options.compare || compareUtils.objectComparison(options.fieldnames)
+    var i = 0, j = 0, main, compare = options.compare || compareUtils.objectComparison(options.fieldnames)
 
-    var batch = new BatchStream(
-        {
-            size: options.size,
-            transform:
-            function storeNextBatch(items, callback) {
-                 console.log('transform. a before '+ JSON.stringify(a))
-                var currFileName = fileNameByNum(i);
-                fastCsv.writeToPath(currFileName, items.sort(compare), { headers: true }).on("finish", function () {console.log("tranform finish " + i); callback() })
-                a.push(currFileName);
-                console.log('a after '+ JSON.stringify(a))
-                i++;
-            }
-        })
+    // objects -> (batch) -> arrays -> (sorter-storer) -> files -> (multiunion) -> objects 
+    var batch = new BatchStream({ size: options.size })
 
-    return through(function (data) { batch.write(data) },
-        function () {
-            console.log('end fired')
-            var b = [], data;
-            console.log('a is ' + JSON.stringify(a));
-            for (var v of a) { console.log('v is ' + v); b.push(fastCsv.fromPath(v)); }
-            outS = multiUnion(b, compare);
-            do {
-                data = outS.read();
-                console.log('data is ' + JSON.stringify(data))
-                this.queue(data);
-            } while (data)
-        })
+    var sortAndStore = through(storeNextBatch, function () { console.log('storeAndSort end') })
+
+    function storeNextBatch(items) {
+        console.log('transform ' + i); 
+        var currFileName = fileNameByNum(i);
+        this.queue(fastCsv.fromPath(currFileName, { headers: true }))
+        main =this;
+        i++;
+        fastCsv.writeToPath(currFileName, items.sort(compare), { headers: true })
+            .on("finish", function () {
+                console.log("tranform finish " + i);
+                i--;
+                if (i==0) 
+                    main.queue(null)
+            })
+        
+    }
+
+    var bufferUnion = through(function (data) {
+        this.a || (this.a = [])
+        this.a.push(data)
+    }, function () {
+        outS = multiUnion(this.a, compare);
+        do {
+            data = outS.read();
+            console.log('data is ' + JSON.stringify(data))
+            this.queue(data);
+        } while (data)
+    }
+    )
+
+    return combine([batch, sortAndStore, bufferUnion])
 }
 
 
@@ -49,9 +58,8 @@ function fileNameByNum(num) {
     return 'tmp/tmp' + '0'.repeat(Math.max(0, 5 - y)) + num + '.csv';
 }
 
-function myCompare(x1,x2)
-{
-    return x1.a > x2.a ? 1 : x1.a==x2.a ? 0 : -1;
+function myCompare(x1, x2) {
+    return x1.a > x2.a ? 1 : x1.a == x2.a ? 0 : -1;
 }
 
 function testExtSort() {
@@ -65,10 +73,10 @@ function testExtSort() {
         else
             this.push(null)
     }
-    var toCSV = fastCsv.createWriteStream({headers: true}),
-    outFile = fs.createWriteStream("result.csv");
-    myReadable.pipe(through(function(data) { this.queue(JSON.stringify(data)+', ') } )).pipe(process.stdout)
-    myReadable.pipe(externalSorter({size: 15, fieldnames: ["a"] })).pipe(toCSV).pipe(outFile)
+    var toCSV = fastCsv.createWriteStream({ headers: true }),
+        outFile = fs.createWriteStream("result.csv");
+    myReadable.pipe(through(function (data) { this.queue(JSON.stringify(data) + ', ') })).pipe(process.stdout)
+    myReadable.pipe(externalSorter({ size: 15, fieldnames: ["a"] })).pipe(toCSV).pipe(outFile)
 }
 
 // options…}

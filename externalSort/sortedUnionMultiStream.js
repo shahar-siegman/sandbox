@@ -5,6 +5,7 @@ var through = require('through')
 
 function multiUnion(arrayOfStreams,compare) {
     var l = arrayOfStreams.length;
+    console.log('l= '+l)
     switch (l) {
         case 0:
             return from.obj([]); // a stream with no data
