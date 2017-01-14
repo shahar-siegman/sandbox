@@ -23,11 +23,11 @@ function externalSorter(options) {
     function storeNextBatch(items) {
         console.log('transform ' + i); 
         var currFileName = fileNameByNum(i);
-        this.queue(fastCsv.fromPath(currFileName, { headers: true }))
         main =this;
         i++;
         fastCsv.writeToPath(currFileName, items.sort(compare), { headers: true })
             .on("finish", function () {
+                main.queue(currFileName)
                 console.log("tranform finish " + i);
                 i--;
                 if (i==0) 
