@@ -4,6 +4,7 @@ const fs = require('fs');
 var streamify = require('stream-array');
 const readable = require('stream').Readable;
 
+module.exports=
 function joinStreams(streamA, streamB, comp, joinType, fuseFunc, emptyA, emptyB) {
     // streamA and streamB must already be sorted
     var keepAs = false, keepBs = false;
@@ -97,4 +98,4 @@ test1 = function () {
 
 }
 
-test1();
+
