@@ -34,7 +34,7 @@ function storeToFiles(options) {
 
 
 function mergeReader() {
-    var streamHeads = [],
+    var streamHeads = {},
         streamsArray = [],
         numInputStreams = 0,
         allFileNamesArrived = false,
@@ -67,36 +67,41 @@ function mergeReader() {
         }, function () {
             numActiveStreams--;
             if (numActiveStreams == 0)
-
+                this.queue(null) // when debugging: make sure streamHeads is empty at this point.
         }
     }
 
     function checkIfHeadArrayReady(outputStream, index) {
-        if (streamHeads.length == numInputStreams && streamHeads.every(x => x)) {
-            var pushedIndexes = pushSmallestElementOrElements(outputStream, streamHeads, comp);
-            pushIndexes.length && pushedIndexes.forEach(index => streamsArray[Index].resume());
+        if (streamHeads.size == numActiveStreams) {
+            var elementsToPush = findSmallestElementOrElements(streamHeads, comp);
+            elementsToPush.forEach((element, index) => {
+                outputStream.queue(element);
+                streamsArray[Index].resume();
+            })
         }
     }
-}
 
 
-function pushSmallestElementOrElements(stream, arr, comp) {
-    var smallestValue, smallestValueIndex,
-        smallestValues = [], smallestValuesIndex = [];
-    arr.forEach(function (value, index) {
-        if (!smallestValue || smallestValue && comp(value, smallestValue < 0)) {
-            smallestValue = value;
-            smallestValueIndex = index;
-        }
-    })
-    arr.forEach(function (value, index) {
-        if (comp(value, smallestValue) == 0) {
-            smallestValues.push(value);
-            smallestValuesIndex.push(index);
-        }
-    })
-    if (smallestValue) {
-        stream.queue(smallestValue)
-        return smallestValueIndex;
+    function findSmallestElementOrElements(map, comp) {
+        // split a map with smallest element or elements as the return value. these elemets are subtracted from the original
+        var smallestValue,
+            ret = {};
+        map.forEach(function (value, key) {
+            if (!smallestValue)
+                smallestValue = value;
+            switch (comp(value, smallestValue)) {
+                case -1:
+                    smallestValue = value;
+                    ret = { key: value };
+                    break;
+                case 0:
+                    ret[key] = value;
+                    break;
+                default:
+            }
+            for (var retKey of Object.keys(ret))
+                map[retKey] = undefined;
+            return ret
+        })
     }
-}
+
