@@ -2,6 +2,7 @@ const fs = require('fs')
 const fastCsv = require('fast-csv')
 const through = require('through')
 const mergeStream = require('merge-stream')
+const multiPipe = require('multipipe')
 
 function storeToFiles(options) {
     options = Object.assign({ size: 100 }, options);
@@ -11,11 +12,11 @@ function storeToFiles(options) {
         main
 
     // objects -> (batch) -> arrays -> (sorter-storer) -> files -> (multiunion) -> objects 
-    var batch = new BatchStream({ size: options.size })
+    var batch = new BatchStream({ size: options.size }),
+        storeAndSort = through(storeNextBatch, function () { isDone = true; console.log('storeAndSort finish'); this.queue(null) }),
+        reader = mergeReader();
 
-    batch.pipe(through(storeNextBatch, function () { isDone = true; console.log('storeAndSort finish') }))
-
-    return batch;
+    return multiPipe(batch, storeAndSort, reader);
     function storeNextBatch(items) {
         console.log('storeNextBatch ' + i);
         var currFileName = fileNameByNum(i);
@@ -68,7 +69,7 @@ function mergeReader() {
             numActiveStreams--;
             if (numActiveStreams == 0)
                 this.queue(null) // when debugging: make sure streamHeads is empty at this point.
-        }
+        })
     }
 
     function checkIfHeadArrayReady(outputStream, index) {
@@ -104,4 +105,5 @@ function mergeReader() {
             return ret
         })
     }
-
+}
+module.exports = storeToFiles;
