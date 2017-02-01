@@ -1,6 +1,7 @@
 readable = require('stream').Readable
 through = require('through')
 external = require('./externalSort2')
+var seed = 1;
 
 function longStream(len) {
     var remaining = len,
@@ -8,13 +9,19 @@ function longStream(len) {
     ret._read = function () {
         var sinkReady = true;
         while (sinkReady && remaining) {
-            var k = Math.floor(Math.random() * len * 10);
+            var k = Math.floor(random() * len * 10);
             sinkReady = this.push({ a: k })
             remaining--;
         }
         if (!remaining) this.push(null)
     }
     return ret
+}
+
+
+function random() {
+    var x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
 }
 
 longStream(100).pipe(external({size:20, fieldnames: 'a'}))

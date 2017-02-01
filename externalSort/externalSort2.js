@@ -3,6 +3,8 @@ const fastCsv = require('fast-csv')
 const through = require('through')
 const mergeStream = require('merge-stream')
 const multiPipe = require('multipipe')
+const compareUtils = require('../comparer/comparer')
+const BatchStream = require('batch-stream2')
 
 function storeToFiles(options) {
     options = Object.assign({ size: 100 }, options);
@@ -13,8 +15,8 @@ function storeToFiles(options) {
 
     // objects -> (batch) -> arrays -> (sorter-storer) -> files -> (multiunion) -> objects 
     var batch = new BatchStream({ size: options.size }),
-        storeAndSort = through(storeNextBatch, function () { isDone = true; console.log('storeAndSort finish'); this.queue(null) }),
-        reader = mergeReader();
+        storeAndSort = through(storeNextBatch, function () { isDone = true; console.log('storeAndSort finish'); }),
+        reader = mergeReader(compare);
 
     return multiPipe(batch, storeAndSort, reader);
     function storeNextBatch(items) {
@@ -34,14 +36,15 @@ function storeToFiles(options) {
 }
 
 
-function mergeReader() {
+function mergeReader(comp) {
     var streamHeads = {},
         streamsArray = [],
         numInputStreams = 0,
         allFileNamesArrived = false,
-        readable = mergeStream();
-    numActiveStreams
+        readable = mergeStream(),
+        numActiveStreams;
     function onData(currFileName) {
+        console.log('file: ' + currFileName)
         var newReadStream = fs.createReadStream(currFileName)
             .pipe(fastCsv.parse({ headers: true }))
             .pipe(streamHeadHandler(numInputStreams));
@@ -73,12 +76,13 @@ function mergeReader() {
     }
 
     function checkIfHeadArrayReady(outputStream, index) {
-        if (streamHeads.size == numActiveStreams) {
+        if (Object.keys(streamHeads).length == numActiveStreams) {
             var elementsToPush = findSmallestElementOrElements(streamHeads, comp);
-            elementsToPush.forEach((element, index) => {
+            for (index in elementsToPush) {
+                element = elementsToPush[index];
                 outputStream.queue(element);
                 streamsArray[Index].resume();
-            })
+            }
         }
     }
 
@@ -87,7 +91,8 @@ function mergeReader() {
         // split a map with smallest element or elements as the return value. these elemets are subtracted from the original
         var smallestValue,
             ret = {};
-        map.forEach(function (value, key) {
+        for (key in map) {
+            var value = map[key];
             if (!smallestValue)
                 smallestValue = value;
             switch (comp(value, smallestValue)) {
@@ -103,7 +108,12 @@ function mergeReader() {
             for (var retKey of Object.keys(ret))
                 map[retKey] = undefined;
             return ret
-        })
+        }
     }
+}
+
+function fileNameByNum(num) {
+    y = num.toString().length;
+    return 'tmp/tmp' + '0'.repeat(Math.max(0, 5 - y)) + num + '.csv';
 }
 module.exports = storeToFiles;
