@@ -23,6 +23,10 @@
     "stream-combiner": "^0.2.2",
     "stream-iterate": "^1.2.0",
     "stream-meter": "^1.0.4",
-    "through": "^2.3.8"
+    "through": "^2.3.8",
+    "tracer": "^0.8.7"
+  },
+  "devDependencies": {
+    "sort-stream": "^1.0.1"
   }
 }

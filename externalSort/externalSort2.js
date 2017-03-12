@@ -2,9 +2,11 @@ const fs = require('fs')
 const fastCsv = require('fast-csv')
 const through = require('through')
 const mergeStream = require('merge-stream')
-const multiPipe = require('stream-combiner')
+const streamCombiner = require('stream-combiner')
 const compareUtils = require('../comparer/comparer')
 const BatchStream = require('batch-stream2')
+const logger = require('tracer').console({level:"warn"})
+
 var count = 0;
 function storeToFiles(options) {
     options = Object.assign({ size: 100 }, options);
@@ -15,18 +17,18 @@ function storeToFiles(options) {
 
     // objects -> (batch) -> arrays -> (sorter-storer) -> files -> (multiunion) -> objects 
     var batch = new BatchStream({ size: options.size }),
-        storeAndSort = through(storeNextBatch, function () { isDone = true; console.log('storeAndSort finish'); }),
+        storeAndSort = through(storeNextBatch, function () { isDone = true; logger.log('storeAndSort finish'); }),
         reader = mergeReader(compare);
 
-    return [batch, storeAndSort, reader];
+    return streamCombiner([batch, storeAndSort, reader]);
     function storeNextBatch(items) {
-        console.log('storeNextBatch ' + i);
+        logger.log('storeNextBatch ' + i);
         var currFileName = fileNameByNum(i);
         main = this;
         i++;
         fastCsv.writeToPath(currFileName, items.sort(compare), { headers: true })
             .on("finish", function () {
-                console.log("storing finished " + i);
+                logger.log("storing finished " + i);
                 main.queue(currFileName);
                 i--;
                 if (isDone && i == 0)
@@ -43,11 +45,11 @@ function mergeReader(comp) {
         allFileNamesArrived = false,
         numActiveStreams;
     function onData(currFileName) {
-        console.log('file: ' + currFileName)
-        var self=this;
+        logger.log('file: ' + currFileName)
+        var self = this;
         var newReadStream = fs.createReadStream(currFileName)
             .pipe(fastCsv.parse({ headers: true }))
-            .pipe(streamHeadHandler(numInputStreams,self))
+            .pipe(streamHeadHandler(numInputStreams, self))
         newReadStream.pause();
         streamsArray.push(newReadStream);
         numInputStreams++;
@@ -62,16 +64,17 @@ function mergeReader(comp) {
 
     return through(onData, onFinish);
 
-    function streamHeadHandler(index,outputStream) {
+    function streamHeadHandler(index, outputStream) {
         return through(function (data) {
             streamHeads[index] = data;
-            console.log('got ' + data.a + ' from s' + index)
+            logger.log('got ' + data.a + ' from s' + index)
             this.pause();
             checkIfHeadArrayReady(outputStream)
         }, function () {
             numActiveStreams--;
+            fs.unlink(fileNameByNum(numActiveStreams), function (err) { if (err) logger.log('error deleting ' + err) })
             if (numActiveStreams == 0)
-                outputStream.queue(null) // when debugging: make sure streamHeads is empty at this point.
+                outputStream.queue(null)
             else
                 checkIfHeadArrayReady(outputStream)
         })
@@ -84,7 +87,7 @@ function mergeReader(comp) {
             for (ind in elementsToPush) {
                 var element = elementsToPush[ind];
                 outputStream.queue(element);
-                console.log(count++ + ': queuing ' + element.a + ' from stream ' + ind)
+                logger.log(count++ + ': queuing ' + element.a + ' from stream ' + ind)
                 streamsArray[ind].resume();
             }
         }
