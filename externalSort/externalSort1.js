@@ -13,34 +13,42 @@ const combine = require('stream-combiner')
 // fieldnames: instead of specifying the compare function, you can specify the name of the fields to be compared as an array
 function externalSorter(options) {
     options = Object.assign({ size: 100 }, options);
-    var i = 0, j = 0, main, compare = options.compare || compareUtils.objectComparison(options.fieldnames)
-
+    var compare = options.compare || compareUtils.objectComparison(options.fieldnames),
+    i = 0, 
+    isDone=false, 
+    main 
+    
     // objects -> (batch) -> arrays -> (sorter-storer) -> files -> (multiunion) -> objects 
     var batch = new BatchStream({ size: options.size })
 
-    var sortAndStore = through(storeNextBatch, function () { console.log('storeAndSort end') })
+    var sortAndStore = through(storeNextBatch, function () { isDone = true; console.log('storeAndSort finish') })
 
     function storeNextBatch(items) {
-        console.log('transform ' + i); 
+        console.log('transform ' + i);
         var currFileName = fileNameByNum(i);
-        main =this;
+        main = this;
         i++;
         fastCsv.writeToPath(currFileName, items.sort(compare), { headers: true })
             .on("finish", function () {
-                main.queue(currFileName)
-                console.log("tranform finish " + i);
-                i--;
-                if (i==0) 
+                console.log("storing finished " + i);
+                main.queue(currFileName);
+                i--;                        
+                if (isDone && i == 0)
                     main.queue(null)
             })
-        
+
     }
 
     var bufferUnion = through(function (data) {
         this.a || (this.a = [])
+        console.log('bufferUnion received ' + data);
         this.a.push(data)
     }, function () {
-        outS = multiUnion(this.a, compare);
+        console.log('multiunion files ' + JSON.stringify(this.a))
+        var inS = this.a.map(x => fastCsv.fromPath(x, { headers: true }))
+        //fastCsv.fromPath("tmp/tmp00000.csv").pipe(through(function(data) {this.queue(JSON.stringify(data))})).pipe(process.stdout);
+        // fs.createReadStream("tmp/tmp00000.csv").pipe(process.stdout);
+        var outS = multiUnion(inS, compare);
         do {
             data = outS.read();
             console.log('data is ' + JSON.stringify(data))
@@ -75,10 +83,21 @@ function testExtSort() {
     }
     var toCSV = fastCsv.createWriteStream({ headers: true }),
         outFile = fs.createWriteStream("result.csv");
-    myReadable.pipe(through(function (data) { this.queue(JSON.stringify(data) + ', ') })).pipe(process.stdout)
+    //myReadable.pipe(through(function (data) { this.queue(JSON.stringify(data) + ', ') })).pipe(process.stdout)
     myReadable.pipe(externalSorter({ size: 15, fieldnames: ["a"] })).pipe(toCSV).pipe(outFile)
 }
 
 // options…}
+function testFromPath() {
+    var a= ["tmp/tmp00000.csv","tmp/tmp00001.csv","tmp/tmp00002.csv","tmp/tmp00003.csv"]
+    var b= a.map(x => fastCsv.fromPath(x, { headers: true }))
+   // var s=fastCsv.fromPath(b[0], { headers: true })
+    b[0].pipe(through(function(data) {this.queue(JSON.stringify(data))})).pipe(process.stdout);
+    b[1].pipe(through(function(data) {this.queue(JSON.stringify(data))})).pipe(process.stdout);
+}
 
-testExtSort()
+function testFromPath2() {
+    fs.createReadStream("tmp/tmp00000.csv").pipe(process.stdout);
+     fs.createReadStream(".gitignore").pipe(process.stdout);
+}
+testFromPath2()
